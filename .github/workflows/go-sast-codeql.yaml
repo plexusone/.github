@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: 'security-extended,security-and-quality'
+      working-directory:
+        description: 'Directory containing go.mod (for nested modules)'
+        required: false
+        type: string
+        default: '.'
 
 permissions:
   actions: read
@@ -40,8 +45,9 @@ jobs:
       with:
         go-version: ${{ inputs.go-version }}
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v4
+    - name: Build
+      working-directory: ${{ inputs.working-directory }}
+      run: go build ./...
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

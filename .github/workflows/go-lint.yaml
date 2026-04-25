@@ -23,6 +23,11 @@ on:
         required: false
         type: string
         default: '--verbose'
+      working-directory:
+        description: 'Directory containing go.mod (for nested modules)'
+        required: false
+        type: string
+        default: '.'
 
 permissions:
   contents: read
@@ -44,3 +49,4 @@ jobs:
       with:
         version: ${{ inputs.golangci-lint-version }}
         args: --timeout ${{ inputs.timeout }} ${{ inputs.args }}
+        working-directory: ${{ inputs.working-directory }}
