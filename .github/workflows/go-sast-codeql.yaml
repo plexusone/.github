@@ -13,11 +13,11 @@ on:
         required: false
         type: string
         default: 'security-extended,security-and-quality'
-      working-directory:
-        description: 'Directory containing go.mod (for nested modules)'
+      modules:
+        description: 'JSON array of module directories containing go.mod'
         required: false
         type: string
-        default: '.'
+        default: '["."]'
 
 permissions:
   actions: read
@@ -45,9 +45,12 @@ jobs:
       with:
         go-version: ${{ inputs.go-version }}
 
-    - name: Build
-      working-directory: ${{ inputs.working-directory }}
-      run: go build ./...
+    - name: Build modules
+      run: |
+        for module in $(echo '${{ inputs.modules }}' | jq -r '.[]'); do
+          echo "Building module: $module"
+          (cd "$module" && go build ./...)
+        done
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

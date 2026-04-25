@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: 'latest'
+      modules:
+        description: 'JSON array of module directories containing go.mod'
+        required: false
+        type: string
+        default: '["."]'
       timeout:
         description: 'Lint timeout'
         required: false
@@ -23,18 +28,18 @@ on:
         required: false
         type: string
         default: '--verbose'
-      working-directory:
-        description: 'Directory containing go.mod (for nested modules)'
-        required: false
-        type: string
-        default: '.'
 
 permissions:
   contents: read
 
 jobs:
   lint:
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(inputs.modules) }}
     runs-on: ubuntu-latest
+    name: lint (${{ matrix.module }})
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
@@ -49,4 +54,4 @@ jobs:
       with:
         version: ${{ inputs.golangci-lint-version }}
         args: --timeout ${{ inputs.timeout }} ${{ inputs.args }}
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ matrix.module }}
