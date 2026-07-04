@@ -276,20 +276,7 @@ jobs:
             else
               echo "Approving PR #$PR as $BOT_IDENTITY..."
 
-              APPROVAL_BODY="Auto-approved by Go Dependency Auto-Merge workflow.
-
-**Policy checks passed:**
-- Author: $author (allowed)
-- Files: only go.mod/go.sum
-- Age: meets quarantine period (or manual dispatch)
-- Directives: no replace/exclude/retract/toolchain/go changes
-- Merge state: $merge_state
-
-**Approved by:** $BOT_IDENTITY
-
-Branch protection requirements still apply before merge."
-
-              gh pr review "$PR" --approve --body "$APPROVAL_BODY"
+              gh pr review "$PR" --approve --body "Auto-approved by Go Dependency Auto-Merge workflow. Policy checks passed: author=$author, files=go.mod/go.sum only, merge_state=$merge_state. Approved by $BOT_IDENTITY."
 
               echo "Enabling auto-merge for PR #$PR..."
               gh pr merge "$PR" --auto --squash --delete-branch
