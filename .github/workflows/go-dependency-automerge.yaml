@@ -275,8 +275,8 @@ jobs:
               echo "[DRY RUN] Would approve and enable auto-merge for PR #$PR"
             else
               echo "Approving PR #$PR as $BOT_IDENTITY..."
-              gh pr review "$PR" --approve --body "$(cat <<EOF
-Auto-approved by Go Dependency Auto-Merge workflow.
+
+              APPROVAL_BODY="Auto-approved by Go Dependency Auto-Merge workflow.
 
 **Policy checks passed:**
 - Author: $author (allowed)
@@ -287,9 +287,9 @@ Auto-approved by Go Dependency Auto-Merge workflow.
 
 **Approved by:** $BOT_IDENTITY
 
-Branch protection requirements still apply before merge.
-EOF
-)"
+Branch protection requirements still apply before merge."
+
+              gh pr review "$PR" --approve --body "$APPROVAL_BODY"
 
               echo "Enabling auto-merge for PR #$PR..."
               gh pr merge "$PR" --auto --squash --delete-branch
