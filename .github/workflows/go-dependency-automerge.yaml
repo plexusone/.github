@@ -1,0 +1,299 @@
+name: Go Dependency Auto-Merge
+
+on:
+  workflow_call:
+    inputs:
+      pr:
+        description: 'PR number to evaluate immediately (skips age check)'
+        required: false
+        type: string
+        default: ''
+      profile:
+        description: 'Merge profile (aggressive, balanced, conservative, quarantine)'
+        required: false
+        type: string
+        default: 'quarantine'
+      min-age-days:
+        description: 'Minimum PR age in days before auto-merge (overrides profile)'
+        required: false
+        type: number
+        default: 5
+      allowed-authors:
+        description: 'Comma-separated list of allowed PR authors'
+        required: false
+        type: string
+        default: 'dependabot[bot],renovate[bot]'
+      dry-run:
+        description: 'If true, only evaluate but do not merge'
+        required: false
+        type: boolean
+        default: false
+      go-version:
+        description: 'Go version for building versionconductor'
+        required: false
+        type: string
+        default: '1.24.x'
+      versionconductor-version:
+        description: 'Version of versionconductor to use (tag or "latest")'
+        required: false
+        type: string
+        default: 'latest'
+    secrets:
+      token:
+        description: 'GitHub token with permissions to approve and merge PRs (fallback if no app credentials)'
+        required: false
+      app-id:
+        description: 'GitHub App ID for versionconductor[bot] identity'
+        required: false
+      app-private-key:
+        description: 'GitHub App private key for versionconductor[bot] identity'
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+  statuses: read
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: go-dependency-automerge-${{ github.repository }}
+      cancel-in-progress: false
+
+    steps:
+      # Generate GitHub App token if credentials are provided
+      # This gives the versionconductor[bot] identity for better audit trail
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ secrets.app-id != '' && secrets.app-private-key != '' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.app-id }}
+          private-key: ${{ secrets.app-private-key }}
+          owner: ${{ github.repository_owner }}
+
+      # Determine which token to use:
+      # 1. GitHub App token (versionconductor[bot]) - preferred
+      # 2. Provided token secret - user's choice
+      # 3. Default github.token - fallback
+      - name: Set token
+        id: token
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "Using GitHub App token (versionconductor[bot])"
+            echo "token=${{ steps.app-token.outputs.token }}" >> "$GITHUB_OUTPUT"
+            echo "identity=versionconductor[bot]" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ secrets.token }}" ]; then
+            echo "Using provided token secret"
+            echo "token=${{ secrets.token }}" >> "$GITHUB_OUTPUT"
+            echo "identity=custom" >> "$GITHUB_OUTPUT"
+          else
+            echo "Using default GITHUB_TOKEN"
+            echo "token=${{ github.token }}" >> "$GITHUB_OUTPUT"
+            echo "identity=github-actions[bot]" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Select PRs
+        id: prs
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          PR_INPUT: ${{ inputs.pr }}
+          ALLOWED_AUTHORS: ${{ inputs.allowed-authors }}
+        run: |
+          if [ -n "$PR_INPUT" ]; then
+            echo "numbers=$PR_INPUT" >> "$GITHUB_OUTPUT"
+            echo "manual=true" >> "$GITHUB_OUTPUT"
+          else
+            # Build jq filter for allowed authors
+            authors_filter=$(echo "$ALLOWED_AUTHORS" | tr ',' '\n' | while read -r author; do
+              echo ".author.login==\"$author\""
+            done | paste -sd ' or ')
+
+            # Get oldest eligible PR
+            pr_number=$(gh pr list --state open --json number,author,createdAt \
+              --jq "[.[] | select($authors_filter)] | sort_by(.createdAt) | .[0].number // empty")
+
+            if [ -z "$pr_number" ]; then
+              echo "No eligible PRs found"
+              echo "numbers=" >> "$GITHUB_OUTPUT"
+            else
+              echo "numbers=$pr_number" >> "$GITHUB_OUTPUT"
+            fi
+            echo "manual=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if PR exists
+        if: steps.prs.outputs.numbers == ''
+        run: |
+          echo "No PRs to process"
+          exit 0
+
+      - name: Install Go
+        if: steps.prs.outputs.numbers != ''
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ inputs.go-version }}
+
+      - name: Install versionconductor
+        if: steps.prs.outputs.numbers != ''
+        run: |
+          if [ "${{ inputs.versionconductor-version }}" = "latest" ]; then
+            go install github.com/plexusone/versionconductor/cmd/versionconductor@latest
+          else
+            go install github.com/plexusone/versionconductor/cmd/versionconductor@${{ inputs.versionconductor-version }}
+          fi
+
+      - name: Evaluate and process PRs
+        if: steps.prs.outputs.numbers != ''
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.token.outputs.token }}
+          BOT_IDENTITY: ${{ steps.token.outputs.identity }}
+          PR_NUMBERS: ${{ steps.prs.outputs.numbers }}
+          MANUAL: ${{ steps.prs.outputs.manual }}
+          PROFILE: ${{ inputs.profile }}
+          MIN_AGE_DAYS: ${{ inputs.min-age-days }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          ALLOWED_AUTHORS: ${{ inputs.allowed-authors }}
+        run: |
+          set -euo pipefail
+
+          REPO_OWNER="${GITHUB_REPOSITORY%/*}"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+
+          echo "Bot identity: $BOT_IDENTITY"
+
+          for PR in $PR_NUMBERS; do
+            echo "=========================================="
+            echo "Evaluating PR #$PR"
+            echo "=========================================="
+
+            # Get PR details
+            pr_json=$(gh pr view "$PR" --json author,createdAt,files,mergeStateStatus,isDraft,mergeable)
+
+            author=$(echo "$pr_json" | jq -r '.author.login')
+            echo "Author: $author"
+
+            # Check if author is allowed
+            allowed=false
+            IFS=',' read -ra authors <<< "$ALLOWED_AUTHORS"
+            for allowed_author in "${authors[@]}"; do
+              if [ "$author" = "$allowed_author" ]; then
+                allowed=true
+                break
+              fi
+            done
+
+            if [ "$allowed" = "false" ]; then
+              echo "Skip: author $author not in allowed list"
+              continue
+            fi
+
+            # Check PR age (unless manual dispatch)
+            if [ "$MANUAL" != "true" ]; then
+              created_at=$(echo "$pr_json" | jq -r '.createdAt')
+              created_epoch=$(date -d "$created_at" +%s)
+              now_epoch=$(date +%s)
+              age_days=$(( (now_epoch - created_epoch) / 86400 ))
+
+              echo "PR age: $age_days days (minimum: $MIN_AGE_DAYS)"
+
+              if [ "$age_days" -lt "$MIN_AGE_DAYS" ]; then
+                echo "Skip: PR is $age_days days old, policy requires $MIN_AGE_DAYS days"
+                continue
+              fi
+            else
+              echo "Manual dispatch: skipping age check"
+            fi
+
+            # Check files changed
+            files=$(echo "$pr_json" | jq -r '.files[].path')
+            bad_files=$(echo "$files" | grep -vE '^(go\.mod|go\.sum)$' || true)
+
+            if [ -n "$bad_files" ]; then
+              echo "Skip: PR changes non-Go dependency files:"
+              echo "$bad_files"
+              continue
+            fi
+            echo "Files: only go.mod/go.sum (OK)"
+
+            # Check merge state
+            merge_state=$(echo "$pr_json" | jq -r '.mergeStateStatus')
+            is_draft=$(echo "$pr_json" | jq -r '.isDraft')
+
+            if [ "$is_draft" = "true" ]; then
+              echo "Skip: PR is a draft"
+              continue
+            fi
+
+            if [ "$merge_state" != "CLEAN" ] && [ "$merge_state" != "HAS_HOOKS" ] && [ "$merge_state" != "UNKNOWN" ]; then
+              echo "Skip: merge state is $merge_state"
+              continue
+            fi
+            echo "Merge state: $merge_state (OK)"
+
+            # Get PR diff to check for directive changes
+            diff=$(gh pr diff "$PR" --name-only 2>/dev/null || echo "")
+
+            # Check for directive changes in go.mod
+            gomod_diff=$(gh pr diff "$PR" 2>/dev/null || echo "")
+            has_replace=$(echo "$gomod_diff" | grep -E '^\+\s*replace\s+' || true)
+            has_exclude=$(echo "$gomod_diff" | grep -E '^\+\s*exclude\s+' || true)
+            has_retract=$(echo "$gomod_diff" | grep -E '^\+\s*retract\s+' || true)
+            has_toolchain=$(echo "$gomod_diff" | grep -E '^\+\s*toolchain\s+' || true)
+            has_go_version=$(echo "$gomod_diff" | grep -E '^\+go\s+[0-9]+\.[0-9]+' || true)
+
+            if [ -n "$has_replace" ]; then
+              echo "Skip: PR adds/modifies replace directive"
+              continue
+            fi
+            if [ -n "$has_exclude" ]; then
+              echo "Skip: PR adds/modifies exclude directive"
+              continue
+            fi
+            if [ -n "$has_retract" ]; then
+              echo "Skip: PR adds/modifies retract directive"
+              continue
+            fi
+            if [ -n "$has_toolchain" ]; then
+              echo "Skip: PR adds/modifies toolchain directive"
+              continue
+            fi
+            if [ -n "$has_go_version" ]; then
+              echo "Skip: PR changes Go version"
+              continue
+            fi
+            echo "Directives: no dangerous changes (OK)"
+
+            # All checks passed
+            echo ""
+            echo "All policy checks passed for PR #$PR"
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[DRY RUN] Would approve and enable auto-merge for PR #$PR"
+            else
+              echo "Approving PR #$PR as $BOT_IDENTITY..."
+              gh pr review "$PR" --approve --body "$(cat <<EOF
+Auto-approved by Go Dependency Auto-Merge workflow.
+
+**Policy checks passed:**
+- Author: $author (allowed)
+- Files: only go.mod/go.sum
+- Age: meets quarantine period (or manual dispatch)
+- Directives: no replace/exclude/retract/toolchain/go changes
+- Merge state: $merge_state
+
+**Approved by:** $BOT_IDENTITY
+
+Branch protection requirements still apply before merge.
+EOF
+)"
+
+              echo "Enabling auto-merge for PR #$PR..."
+              gh pr merge "$PR" --auto --squash --delete-branch
+
+              echo "Auto-merge enabled for PR #$PR"
+            fi
+          done
