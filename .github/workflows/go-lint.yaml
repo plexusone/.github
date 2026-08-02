@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: '--verbose'
+      runs-on:
+        description: 'Runner label to lint on'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
 
 permissions:
   contents: read
@@ -38,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         module: ${{ fromJson(inputs.modules) }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
     name: lint (${{ matrix.module }})
     steps:
     - name: Checkout code
