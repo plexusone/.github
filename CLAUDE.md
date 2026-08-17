@@ -27,14 +27,99 @@ All PRs must satisfy before merge:
 - **Commit style**: [Conventional Commits](https://www.conventionalcommits.org/)
 - **Merge strategy**: Rebase-merge or merge commit only — squash merge is disabled to preserve conventional commit history
 
-## PRISM Control Integration
+## CI Gotchas
 
-Plexusone repos may be registered in [prism-control](https://github.com/ProductBuildersHQ/prism-control). When working on registered repos:
+- **`go.mod`'s `go` directive can't outrun CI's cached toolchain.** Every
+  repo on the shared reusable `go-ci.yaml` workflow
+  (`plexusone/.github/.github/workflows/go-ci.yaml`, called via
+  `uses: plexusone/.github/.github/workflows/go-ci.yaml@main`) uses
+  `actions/setup-go@v7` with `go-version: "1.26.x"` — it resolves that to
+  whatever patch it last cached and pins `GOTOOLCHAIN=local`, so it does
+  **not** auto-upgrade to a newer patch just because `go.mod` asks for
+  one. Bumping `go.mod`'s `go` directive past CI's cached version (e.g.
+  to pick up a `govulncheck`-found stdlib CVE fix) breaks every build on
+  that workflow with `go: go.mod requires go >= X.Y.Z (running X.Y.W;
+  GOTOOLCHAIN=local)`. Verify what CI actually resolves to before
+  bumping — don't just bump-and-push and assume `GOTOOLCHAIN=auto`
+  semantics apply. The durable fix is adding `check-latest: true` to the
+  shared workflow's `actions/setup-go` step (not yet done, as of
+  2026-08-17); until then, expect this to recur whenever a new Go patch
+  ships with a fix you want.
 
-- Use `prismctl work ready --repo <repo>` to find claimable work
-- Use `prismctl work claim <RMI-ID>` before starting work
-- Carry `Refs: RMI-<REPOSLUG>-<NNN>` trailer on commits (trailer, not subject line)
-- Use `prismctl work complete <RMI-ID>` when done
+## JSON & Naming Conventions
+
+Rule zero: **external specs always win** — match the wire format of what you're
+implementing (Anthropic API: snake_case; SARIF, OTLP/JSON: camelCase; MCP tool
+params: snake_case; OTel semconv attributes: dot-namespaced snake_case).
+
+For formats we own:
+
+| Surface | Convention | Example |
+|---------|-----------|---------|
+| API/document JSON property names | camelCase | `ruleId`, `conformanceLevels` |
+| API URL paths | kebab-case | `/style-profiles/{id}` |
+| Custom telemetry event JSON | snake_case | `session_id`, `input_tokens` |
+| OTel attributes/metrics | follow semconv (dot namespaces, snake_case words) | `gen_ai.usage.input_tokens` |
+| YAML config keys | kebab-case | `severity-overrides` |
+
+Notes:
+
+- The telemetry snake_case convention matches the Anthropic API wire format
+  our session/usage events mirror (`agentpair`, `omniagent`, `omnillm-evals`).
+- OTel casing is never a choice: semconv defines attribute keys
+  (dot-delimited namespaces, snake_case words within a segment); OTLP/JSON
+  wire keys are camelCase but emitted by the SDK/exporter — never
+  hand-authored.
+- `schemakit lint`: pass `--property-case` matching the surface being
+  linted — `camelCase` for API/document schemas (e.g. `api-style-spec`),
+  `snake_case` for telemetry event schemas.
+
+## VisionStudio Integration
+
+PRISM Control (`prismctl`) no longer exists — initiative and work tracking
+now lives in [visionstudio](https://github.com/ProductBuildersHQ/visionstudio)
+(DoltDB-backed app), with build-progress artifact types (Initiative, Phase,
+RMI) in [prism-build](https://github.com/ProductBuildersHQ/prism-build).
+Plexusone repos may be registered in visionstudio. When working on
+registered repos:
+
+- `visionstudio work ready` — find claimable RMIs
+- `visionstudio work claim <RMI-ID>` — claim before starting work (prints
+  the git trailer to carry)
+- Carry `Refs: RMI-<REPOSLUG>-<NNN>` trailer on commits (trailer, not
+  subject line)
+- `visionstudio work complete <RMI-ID>` — when done
+
+## Initiative Lifecycle, Quality & Efficiency (Operating Model)
+
+The canonical operating model lives in the ProductBuildersHQ org CLAUDE.md
+(`~/go/src/github.com/ProductBuildersHQ/.github/CLAUDE.md`, section
+"Initiative Lifecycle, Quality & Efficiency") — read it when doing
+initiative-tracked work. The habits that apply in every plexusone repo:
+
+- Initiatives are tracked in the `visionstudio` binary (`INIT-<SLUG>-NNN`,
+  workflow `pbhq-lite`); specs at
+  `docs/specs/initiatives/{INIT-ID}/{PRD,TRD,PLAN,ROADMAP}.md`; commits
+  carry `Refs: RMI-<REPOSLUG>-<NNN>` trailers.
+- Transition initiatives promptly; `released` = acceptance testing passed —
+  its timestamp anchors all quality measurement. Record releases in
+  visionstudio (repo + version) at the same moment you update
+  `CHANGELOG.json` and tag.
+- Label defect issues **`bug`** (GitHub default); `enhancement` = demand
+  signal, not a defect. `fix:` commits reference their issue (`Fixes #N`).
+- Defects after the acceptance mark are **escaped defects**; external
+  reporters make them customer-found (CFD). Tiering is automatic from
+  labels, authors, and timestamps.
+- Code review (CI reviewers, local agents) gates acceptance, not the local
+  iteration loop, and is retained only while measured benefit justifies its
+  cost.
+- **We are early adopters.** Most plexusone repo history (some spanning
+  ~10 years) predates RMI tracking — never infer a historical
+  release-to-initiative match from date proximity. Going forward, every
+  release record carries its initiative/RMI IDs; backfilling old history
+  is a distinct AI-assisted activity requiring human confirmation per
+  match (see the ProductBuildersHQ CLAUDE.md section "AI-assisted
+  historical backfill matching").
 
 ## Architecture Principles
 
