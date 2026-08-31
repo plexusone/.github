@@ -38,13 +38,14 @@ jobs:
     runs-on: ${{ matrix.platform }}
     name: test (${{ matrix.module }}, ${{ matrix.go-version }}, ${{ matrix.platform }})
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
     - name: Install Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
-
-    - name: Checkout code
-      uses: actions/checkout@v6
+        check-latest: true
 
     - name: Run tests
       working-directory: ${{ matrix.module }}

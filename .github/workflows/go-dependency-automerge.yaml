@@ -135,6 +135,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ inputs.go-version }}
+          check-latest: true
 
       - name: Install versionconductor
         if: steps.prs.outputs.numbers != ''
