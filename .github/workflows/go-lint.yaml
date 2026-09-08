@@ -22,7 +22,7 @@ on:
         description: 'Lint timeout'
         required: false
         type: string
-        default: '3m'
+        default: '8m'
       args:
         description: 'Additional golangci-lint arguments'
         required: false
