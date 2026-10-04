@@ -1,0 +1,56 @@
+name: Go SCA (govulncheck)
+
+# Known-vulnerability scan using the official govulncheck (OSV-based, with
+# call-graph reachability). Unlike code-only SAST, this is worth running on a
+# schedule: the vulnerability database changes under unchanged code, so a
+# periodic run catches newly-disclosed vulnerabilities. No GitHub Advanced
+# Security required.
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version'
+        required: false
+        type: string
+        default: '1.26.x'
+      modules:
+        description: 'JSON array of module directories containing go.mod'
+        required: false
+        type: string
+        default: '["."]'
+      runs-on:
+        description: 'Runner label'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      version:
+        description: 'govulncheck version to run'
+        required: false
+        type: string
+        default: 'latest'
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(inputs.modules) }}
+    name: govulncheck (${{ matrix.module }})
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ inputs.go-version }}
+          check-latest: true
+
+      - name: Run govulncheck
+        working-directory: ${{ matrix.module }}
+        run: go run golang.org/x/vuln/cmd/govulncheck@${{ inputs.version }} ./...
