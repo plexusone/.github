@@ -1,0 +1,69 @@
+{
+  "irVersion": "1.0",
+  "project": ".github",
+  "repository": "https://github.com/plexusone/.github",
+  "versioning": "semver",
+  "commitConvention": "conventional",
+  "maintainers": [
+    "plexusone",
+    "johncwang@gmail.com"
+  ],
+  "releases": [
+    {
+      "version": "v0.2.0",
+      "date": "2026-10-04",
+      "commit": "448b5d1",
+      "highlights": [
+        { "description": "Free SAST and SCA without GitHub Advanced Security: new `go-sast-gosec` and `go-sca-govulncheck` reusable workflows (no code-scanning upload, so they work on private repos)" },
+        { "description": "Reusable TypeScript CI and lint workflows, a reusable MkDocs deployment workflow, and a reusable Go dependency auto-merge workflow" },
+        { "description": "Multi-module (matrix) support and a centralized golangci-lint config across the shared Go workflows" }
+      ],
+      "added": [
+        { "description": "`go-sast-gosec.yaml`: reusable gosec static-analysis workflow (fails on findings; no GHAS required)", "commit": "448b5d1" },
+        { "description": "`go-sca-govulncheck.yaml`: reusable govulncheck vulnerability-scan workflow (OSV-based, schedule-friendly)", "commit": "dc8d8b7" },
+        { "description": "Shared TypeScript CI and lint workflows", "commit": "abd544d" },
+        { "description": "Reusable MkDocs deployment workflow", "commit": "83a8dbb" },
+        { "description": "Reusable Go dependency auto-merge workflow", "commit": "5395987" },
+        { "description": "`runs-on` input for the go-lint and go-sast-codeql workflows", "commit": "dca8847" },
+        { "description": "Multiple-Go-module support via matrix across the shared Go workflows", "commit": "b7df037" },
+        { "description": "`working-directory` input for nested Go modules", "commit": "47bd954" },
+        { "description": "Centralized golangci-lint config, fetched by `go-lint.yaml`", "commit": "91bb8d6" }
+      ],
+      "changed": [
+        { "description": "`go-lint.yaml`: lint timeout raised from 3m to 8m", "commit": "be80bc6" }
+      ],
+      "fixed": [
+        { "description": "`check-latest` added to setup-go across the shared Go workflows", "commit": "e253d8b" },
+        { "description": "Heredoc YAML parsing in the auto-merge workflow", "commit": "0f82254" },
+        { "description": "Auto-merge approval message simplified to a single line", "commit": "000a906" }
+      ],
+      "documentation": [
+        { "description": "README documenting the shared workflows", "commit": "366844d" },
+        { "description": "Org CLAUDE.md updated for VisionStudio and a CI gotcha; merge-strategy guidance to preserve conventional commits", "commit": "ed016fa" },
+        { "description": "CONTRIBUTING guide updated to VisionStudio work tracking (replacing the retired prismctl/prism-control references)" }
+      ],
+      "dependencies": [
+        { "description": "`mkdocs-deploy.yaml`: dependency updates", "commit": "e877788" }
+      ]
+    },
+    {
+      "version": "v0.1.1",
+      "date": "2026-04-04",
+      "commit": "813d6c8",
+      "added": [
+        { "description": "Reusable Swift CI workflow", "commit": "bfa9e59" }
+      ],
+      "changed": [
+        { "description": "Shared workflows updated to Go 1.26.x", "commit": "813d6c8" }
+      ]
+    },
+    {
+      "version": "v0.1.0",
+      "date": "2026-02-28",
+      "commit": "d8893ec",
+      "added": [
+        { "description": "Initial reusable Go CI/CD workflows", "commit": "d8893ec" }
+      ]
+    }
+  ]
+}
