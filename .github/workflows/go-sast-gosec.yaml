@@ -1,0 +1,60 @@
+name: Go SAST (gosec)
+
+# Static security analysis with gosec (OSS). No GitHub Advanced Security or code
+# scanning upload required — gosec fails the job on findings. Intended for
+# private repos and/or manual (workflow_dispatch) invocation, since gosec is
+# deterministic on source and is typically run locally (see the project Makefile).
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version'
+        required: false
+        type: string
+        default: '1.26.x'
+      modules:
+        description: 'JSON array of module directories containing go.mod'
+        required: false
+        type: string
+        default: '["."]'
+      runs-on:
+        description: 'Runner label'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      args:
+        description: 'Arguments passed to gosec'
+        required: false
+        type: string
+        default: '-quiet ./...'
+      version:
+        description: 'gosec version to run'
+        required: false
+        type: string
+        default: 'latest'
+
+permissions:
+  contents: read
+
+jobs:
+  gosec:
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(inputs.modules) }}
+    name: gosec (${{ matrix.module }})
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ inputs.go-version }}
+          check-latest: true
+
+      - name: Run gosec
+        working-directory: ${{ matrix.module }}
+        run: go run github.com/securego/gosec/v2/cmd/gosec@${{ inputs.version }} ${{ inputs.args }}
