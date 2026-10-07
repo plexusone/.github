@@ -1,6 +1,6 @@
 # AGENTS.md — plexusone
 
-Organization-wide guidelines for Claude Code across all plexusone repositories.
+Organization-wide guidelines for coding agents across all plexusone repositories.
 
 ## Definition of Done
 
@@ -76,24 +76,33 @@ Notes:
 
 ## VisionStudio Integration
 
-PRISM Control (`prismctl`) no longer exists — initiative and work tracking
-now lives in [visionstudio](https://github.com/ProductBuildersHQ/visionstudio)
-(DoltDB-backed app), with build-progress artifact types (Initiative, Phase,
-RMI) in [prism-build](https://github.com/ProductBuildersHQ/prism-build).
-Plexusone repos may be registered in visionstudio. When working on
-registered repos:
+<!-- Shared by the org guidelines (ProductBuildersHQ, grokify, plexusone): keep this section identical. -->
 
-- `visionstudio work ready` — find claimable RMIs
+Initiative and work tracking lives in
+[visionstudio](https://github.com/ProductBuildersHQ/visionstudio), a
+DoltDB-backed app (CLI, daemon, web UI, MCP). Its build-progress artifact
+types (Initiative, Phase, RMI) live in
+[prism-build](https://github.com/ProductBuildersHQ/prism-build). Repos may
+be registered in visionstudio. When working on registered repos:
+
+- `visionstudio work ready` — list RMIs that are ready, unblocked, and
+  unclaimed
 - `visionstudio work claim <RMI-ID>` — claim before starting work (prints
   the git trailer to carry)
 - Carry `Refs: RMI-<REPOSLUG>-<NNN>` trailer on commits (trailer, not
   subject line)
 - `visionstudio work complete <RMI-ID>` — when done
+- `work claim-phase` / `work complete-phase` do the same for a whole phase;
+  `work status` lists active assignments and `work release` returns a claim
+- Before picking an RMI number block, check
+  `visionstudio rmi list --repo <repo>` — cross-repo initiatives may already
+  hold IDs under a repo's slug
 
 ## Initiative Lifecycle, Quality & Efficiency (Operating Model)
 
-The canonical operating model lives in the ProductBuildersHQ org CLAUDE.md
-(`~/go/src/github.com/ProductBuildersHQ/.github/CLAUDE.md`, section
+The canonical operating model lives in the
+[ProductBuildersHQ guidelines](https://github.com/ProductBuildersHQ/.github/blob/main/AGENTS.md)
+(`~/go/src/github.com/ProductBuildersHQ/.github/AGENTS.md`, section
 "Initiative Lifecycle, Quality & Efficiency") — read it when doing
 initiative-tracked work. The habits that apply in every plexusone repo:
 
@@ -118,7 +127,7 @@ initiative-tracked work. The habits that apply in every plexusone repo:
   release-to-initiative match from date proximity. Going forward, every
   release record carries its initiative/RMI IDs; backfilling old history
   is a distinct AI-assisted activity requiring human confirmation per
-  match (see the ProductBuildersHQ CLAUDE.md section "AI-assisted
+  match (see the ProductBuildersHQ guidelines, section "AI-assisted
   historical backfill matching").
 
 ## Architecture Principles
