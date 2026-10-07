@@ -80,10 +80,10 @@ Notes:
 
 Initiative and work tracking lives in
 [visionstudio](https://github.com/ProductBuildersHQ/visionstudio), a
-DoltDB-backed app (CLI, daemon, web UI, MCP). Its build-progress artifact
-types (Initiative, Phase, RMI) live in
-[prism-build](https://github.com/ProductBuildersHQ/prism-build). Repos may
-be registered in visionstudio. When working on registered repos:
+DoltDB-backed app (CLI, daemon, web UI, MCP) that tracks programs,
+initiatives, phases, RMIs, work assignments, specs, maturity, and delivery
+evidence. Repos may be registered in visionstudio. When working on
+registered repos:
 
 - `visionstudio work ready` — list RMIs that are ready, unblocked, and
   unclaimed
