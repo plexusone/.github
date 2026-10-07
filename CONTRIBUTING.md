@@ -4,7 +4,7 @@ Thank you for your interest in contributing!
 
 ## Definition of Done
 
-All PRs must satisfy the [Definition of Done](CLAUDE.md#definition-of-done) before merge. This includes passing tests, linting, documentation updates, RMI trailers, and changelog entries.
+All PRs must satisfy the [Definition of Done](AGENTS.md#definition-of-done) before merge. This includes passing tests, linting, documentation updates, RMI trailers, and changelog entries.
 
 ## Getting Started
 

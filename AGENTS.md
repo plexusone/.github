@@ -1,4 +1,4 @@
-# CLAUDE.md — plexusone
+# AGENTS.md — plexusone
 
 Organization-wide guidelines for Claude Code across all plexusone repositories.
 
