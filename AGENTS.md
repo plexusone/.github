@@ -19,7 +19,8 @@ All PRs must satisfy before merge:
 ## Standard Stack
 
 - **Go version**: 1.26+
-- **ORM**: Ent (`entgo.io/ent`) for MySQL-compatible databases
+- **Databases**: PostgreSQL for cloud/hosted services and heavy relational workloads (preferred over MySQL for row-level security and broader features); Dolt for local, version-controlled data; SQLite for embedded or single-file storage; DuckDB under evaluation for analytics
+- **ORM**: Ent (`entgo.io/ent`) for relational access on any of the above; keep engine-specific code (RLS, `search_path`, pgx-only features) in separate packages so Ent-based code stays portable
 - **CLI**: Cobra (`github.com/spf13/cobra`)
 - **MCP servers**: Official Go SDK (`github.com/modelcontextprotocol/go-sdk`)
 - **Linting**: golangci-lint
