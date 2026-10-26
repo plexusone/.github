@@ -33,6 +33,11 @@ on:
         required: false
         type: string
         default: 'ubuntu-latest'
+      race-flags:
+        description: 'Additional flags for go test in the race detector job, such as -short or -tags; -race -covermode=atomic are always set'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -87,6 +92,9 @@ jobs:
     # The race detector needs cgo, and -covermode must be atomic with -race.
     - name: Run tests with the race detector
       working-directory: ${{ matrix.module }}
+      shell: bash
       env:
         CGO_ENABLED: '1'
-      run: go test -race -covermode=atomic ./...
+        RACE_FLAGS: ${{ inputs.race-flags }}
+      # RACE_FLAGS is unquoted on purpose so it splits into separate flags.
+      run: go test -race -covermode=atomic $RACE_FLAGS ./...
