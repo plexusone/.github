@@ -23,6 +23,16 @@ on:
         required: false
         type: string
         default: '-v -covermode=count'
+      race:
+        description: 'Run the tests with the race detector in a separate job'
+        required: false
+        type: boolean
+        default: true
+      race-platform:
+        description: 'Platform for the race detector job'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
 
 permissions:
   contents: read
@@ -50,3 +60,29 @@ jobs:
     - name: Run tests
       working-directory: ${{ matrix.module }}
       run: go test ${{ inputs.test-flags }} ./...
+
+  race:
+    if: ${{ inputs.race }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ${{ fromJson(inputs.go-versions) }}
+        module: ${{ fromJson(inputs.modules) }}
+    runs-on: ${{ inputs.race-platform }}
+    name: race (${{ matrix.module }}, ${{ matrix.go-version }}, ${{ inputs.race-platform }})
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Install Go
+      uses: actions/setup-go@v7
+      with:
+        go-version: ${{ matrix.go-version }}
+        check-latest: true
+
+    # The race detector needs cgo, and -covermode must be atomic with -race.
+    - name: Run tests with the race detector
+      working-directory: ${{ matrix.module }}
+      env:
+        CGO_ENABLED: '1'
+      run: go test -race -covermode=atomic ./...
